@@ -12,12 +12,17 @@
     lastpat=cord
     remote=(set @p)
   ==
-+$  line-ty
++$  line-head-ty
   $%
     [%abs line=@ud]
-    [%rel diff=@sd]
     [%last ~]
     [%none ~]
+    [%current ~]
+  ==
++$  line-ty
+  $:
+    head=line-head-ty
+    rel=(unit @sd)
   ==
 +$  frange                                                    ::  Flexible range in parsing
   $%
@@ -173,25 +178,28 @@
       ==
     ++  line
       %+  knee  *line-ty  |.  ~+
-      ;~  pose
-        (cold rel+--0 dot)                                    ::  Current line
-        (cold last+~ buc)                                     ::  Last line
-        (stag %abs dem)                                       ::  Absolute line
-        ;~  pfix  lus                                         ::  Relative after
-          %+  stag  %rel
-          ;~  pose
-            (cook sun:si dem)
-            (easy --1)
-          ==
+      ;~  plug
+        ;~  pose
+          (cold current+~ dot)                                  ::  Current line
+          (cold last+~ buc)                                     ::  Last line
+          (stag %abs dem)                                       ::  Absolute line
+          (easy none+~)                                         ::  Nothing
         ==
-        ;~  pfix  hep                                         ::  Relative before
-          %+  stag  %rel
-          ;~  pose
-            %+  cook  |=(d=@ud (dif:si --0 (sun:si d)))  dem
-            (easy -1)
+        ;~  pose
+          ;~  pfix  lus                                         ::  Relative after
+            ;~  pose
+              (cook |=(d=@ud `(sun:si d)) dem)
+              (easy `--1)
+            ==
           ==
+          ;~  pfix  hep                                         ::  Relative before
+            ;~  pose
+              %+  cook  |=(d=@ud `(dif:si --0 (sun:si d)))  dem
+              (easy `-1)
+            ==
+          ==
+          (easy ~)
         ==
-        (easy none+~)
       ==
     ++  text  (star prn)
     ++  patp
@@ -223,14 +231,15 @@
     ?.  rel.pax  path.pax  (weld /(scot %p our.bowl)/[q.byk.bowl]/(scot %da now.bowl) path.pax)
   ++  resolve-line-none
     |=  line=line-ty  ^-  (unit @ud)
-    ?:  =(%none -.line)  `0
-    =/  line=@sd
-      ?-  line
-        [%abs *]  (sun:si line.line)
-        [%rel *]  (sum:si diff.line (sun:si line.state))
-        [%last ~]  (sun:si (lent buff.state))
-        [%none *]  ~|  "???"  !!
+    ?:  =([[%none ~] ~] line)  `0
+    =/  l=@ud
+      ?-  head.line
+        [%abs *]  line.head.line
+        [%current *]  line.state
+        [%last ~]  (lent buff.state)
+        [%none *]  line.state
       ==
+    =/  line=@sd  ?~  rel.line  (sun:si l)  (sum:si u.rel.line (sun:si l))
     ?:  |(=(-1 (cmp:si line --1)) =(--1 (cmp:si line (sun:si (lent buff.state)))))
       ~&  >>>  "Invalid address"  ~
     `(abs:si line)
@@ -257,7 +266,7 @@
         `[1 end]
       ?:  =(end 0)
         `[start 1]
-      ?:  (gth start end)  ~&  >>>  "Invalid address"  ~
+      ?:  (gth start end)  ~&  >>>  "Invalid range"  ~
       `[start +((sub end start))]
     ==
 
