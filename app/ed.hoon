@@ -344,13 +344,14 @@
     |=  line=@ud  ^-  (quip card _this)
     =.  line  ?:  =(0 line)  +(line.state)  line
     ?:  (gth line (lent buff.state))  ~&  >>>  "Invalid address"  `this
-    =/  text=tape  (trip (snag (dec line) buff.state))
-    [~[shoe+[~ sole+txt+text]] this(line.state line)]
+    =/  text=cord  (snag (dec line) buff.state)
+    [~[shoe+[~ sole+(with-num:util line text)]] this(line.state line)]
 
   ++  print
     |=  range=range-ty  ^-  (quip card _this)
-    =/  texts=(list sole-effect)  (turn (swag [(dec start.range) len.range] buff.state) |=(t=cord txt+(trip t)))
-    [~[shoe+[~ sole+mor+texts]] this(line.state (dec (add start.range len.range)))]
+    =/  lines  (swag [(dec start.range) len.range] buff.state)
+    =/  numbered-lines=(list [@ud cord])  (zip:util (gulf start.range (dec (add start.range len.range))) lines)
+    [~[shoe+[~ sole+mor+(turn numbered-lines with-num:util)]] this(line.state (dec (add start.range len.range)))]
 
   ++  extern
     |=  cmd=ext-cmd-ty  ^-  (quip card _this)
@@ -358,6 +359,24 @@
     [%allow-remote *]  `this(remote.state (~(put in remote.state) ship.cmd))
     [%remove-remote *]  `this(remote.state (~(del in remote.state) ship.cmd))
     ==
+
+  ++  util
+    |%
+    ++  with-num
+      |=  [l=@ud t=cord]  ^-  sole-effect
+      =/  l  (scow %ud l)
+      =/  max-len  (lent (scow %ud (lent buff.state)))
+      =/  this-len  (lent l)
+      klr+~[[[`%br ~ `%g] (weld (weld (reap (sub max-len this-len) ' ') l) (reap (sub 8 (lent l)) ' '))] t]
+
+    ++  zip
+      |*  [a=(list) b=(list)]
+      =/  out=(list [_-.a _-.b])  ~
+      |-
+      ?:  ?=([^ ^] [a b])
+        $(out (snoc out [(head a) (head b)]), a (tail a), b (tail b))
+      out
+    --
   --
 
 ++  can-connect
