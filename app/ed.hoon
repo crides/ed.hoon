@@ -4,7 +4,6 @@
 +$  cmd-st-ty
   $%
     [%norm ~]
-    [%output ~]
     [%insert line=@ud]
     [%append line=@ud]
   ==
@@ -43,7 +42,6 @@
     [%allow-remote ship=@p]
     [%remove-remote ship=@p]
     [%list-remote ~]
-    [%void ~]                             ::  It's here to prevent mint-vain on the handler; never constructed
   ==
 +$  cmd-ty
   $%
@@ -61,7 +59,6 @@
     [%extern cmd=ext-cmd-ty]
 
     [%text text=(unit tape)]
-    [%cont ~]
   ==
 +$  card  card:shoe
 ++  shoe-fec
@@ -91,12 +88,12 @@
 %+  verb  |
 %-  agent:dbug
 ^-  agent:gall
-%-  (agent:shoe cmd-ty)
-^-  (shoe:shoe cmd-ty)
+%-  (agent:shoe (pair cmd-ty tape))
+^-  (shoe:shoe (pair cmd-ty tape))
 |_  =bowl:gall
 +*  this  .
     def   ~(. (default-agent this %|) bowl)
-    des   ~(. (default:shoe this cmd-ty) bowl)
+    des   ~(. (default:shoe this (pair cmd-ty tape)) bowl)
 ::
 ++  on-init   on-init:def
 ++  on-save   !>(state)
@@ -112,9 +109,10 @@
 ++  on-fail   on-fail:def
 ++  command-parser
   |=  sole-id=@ta
-  ^+  |~(nail *(like [? cmd-ty]))
+  ^+  |~(nail *(like [? (pair cmd-ty tape)]))
   %+  stag  %.n
   |^
+    %+  cook  |=(cmd=cmd-ty [cmd (repr cmd)])
     ?-  cmd-st.state
     [%norm ~]
     ;~  pose
@@ -130,7 +128,6 @@
     ==
     [%append *]  (stag %text text:pars)
     [%insert *]  (stag %text text:pars)
-    [%output ~]  (stag %cont empty:pars)
     ==
 
   ++  extern
@@ -191,6 +188,52 @@
     %+  knee  *cmd-ty  |.  ~+
     %+  stag  %write
     ;~(pfix (just 'w') optpath:pars)
+  ++  repr
+    |=  cmd=cmd-ty  ^-  tape
+    |^
+      ?-  -.cmd
+      %append  (welp (line line.cmd) "a")
+      %change  (welp (ranj range.cmd) "c")
+      %delete  (welp (ranj range.cmd) "d")
+      %edit  (welp "e " (biff path.cmd path))
+      %file  (welp "f " (biff path.cmd path))
+      %goto  (line line.cmd)
+      %insert  (welp (line line.cmd) "i")
+      %kark  (welp (line line.cmd) "k{<mark.cmd>}")
+      %print  (welp (ranj range.cmd) "p")
+      %undo  "u"
+      %write  (welp "w " (biff path.cmd path))
+      %extern
+        ?-  -.cmd.cmd
+        %allow-remote  "!allow {<ship.cmd.cmd>}"
+        %remove-remote  "!remove {<ship.cmd.cmd>}"
+        %list-remote  "!remote"
+        ==
+      %text  ?~  text.cmd  "."  u.text.cmd
+      ==
+    ++  path
+      |=  pax=anypath  ^-  tape
+      (welp ?:(rel.pax "" "%") <path.pax>)
+    ++  line
+      |=  line=line-ty  ^-  tape
+      =/  head=tape  ?-  -.head.line
+        %abs  <line.head.line>
+        %mark  "'{<mark.head.line>}"
+        %last  "$"
+        %none  ""
+        %current  "."
+        ==
+      =/  rel  ?~  rel.line  ""
+        =/  old  (old:si u.rel.line)
+        ?:  -.old  "+{<+.old>}"  "-{<+.old>}"
+      (welp head rel)
+    ++  ranj
+      |=  ranj=frange  ^-  tape
+      ?-  -.ranj
+      %line  (line line.ranj)
+      %range  "{(line start.ranj)},{(line end.ranj)}"
+      ==
+    --
   ++  pars
     |%
     ++  ws  (cold ~ (star (just ' ')))
@@ -252,10 +295,11 @@
 
 ++  tab-list  tab-list:des
 ++  on-command
-  |=  [sole-id=@ta cmd=cmd-ty]
-  ~&  >  cmd
+  |=  [sole-id=@ta cmd=(pair cmd-ty tape)]
   |^  ^-  (quip card _this)
-    =/  new=(unit (quip card _this))  ?+  cmd  ~&  >>>  "Unimplemented"  ~
+    =/  cmd-tape=tape  q.cmd
+    =/  cmd=cmd-ty  p.cmd
+    =/  new=(unit (quip card _this))  ?-  cmd
       [%append *]
         %+  biff  (resolve-line line.cmd)
         |=  line=@ud
@@ -286,7 +330,9 @@
         [%insert *]  (insert line.cmd-st.state text.cmd)
         ==
       ==
-    ?~  new  `this  u.new
+    =/  print-cmd  (shoe-print (welp "> " cmd-tape))
+    ?~  new  [print-cmd this]  [(welp print-cmd -.u.new) +.u.new]
+
   ::  State related element handlers
   ::
   ++  get-file
@@ -349,9 +395,9 @@
   ++  append
     |=  [line=@ud t=(unit tape)]  ^-  (unit (quip card _this))
     ?~  t
-      `[(shoe-print ".") this(cmd-st.state [%norm ~], line.state line)]
+      `[(prompt ": ") this(cmd-st.state [%norm ~], line.state line)]
     %-  some
-    :-  (welp (shoe-print u.t) (prompt ": "))
+    :-  ~
     %=  this
       buff.state  (into buff.state line (crip u.t))
       cmd-st.state  [%append +(line)]
@@ -376,7 +422,6 @@
 
   ++  edit
     |=  pax=path  ^-  (unit (quip card _this))
-    ~&  pax
     =/  file  (bind (file:space:userlib (actual-path pax)) |=(a=* ;;(@t a)))
     ?~  file  ~&  >>>  "file doesn't exist"  ~
     =/  buff  (to-wain:format u.file)
@@ -397,7 +442,7 @@
   ++  insert
     |=  [line=@ud t=(unit tape)]  ^-  (unit (quip card _this))
     ?~  t
-      `[(welp (shoe-print ".") (prompt ": ")) this(cmd-st.state [%norm ~], line.state ?:(=(line 0) 1 line))]
+      `[(prompt ": ") this(cmd-st.state [%norm ~], line.state ?:(=(line 0) 1 line))]
     %-  some
     :-  (shoe-print u.t)
     this(buff.state (into buff.state line (crip u.t)), cmd-st.state [%insert +(line)])
@@ -430,7 +475,7 @@
 
   ++  extern
     |=  cmd=ext-cmd-ty  ^-  (unit (quip card _this))
-    ?+  cmd  ~&  >>>  "Unknown command"  ~
+    ?-  cmd
     [%allow-remote *]  ``this(remote.state (~(put in remote.state) ship.cmd))
     [%remove-remote *]  ``this(remote.state (~(del in remote.state) ship.cmd))
     [%list-remote ~]  (some [(shoe-print <remote.state>) this])
