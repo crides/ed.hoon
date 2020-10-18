@@ -22,6 +22,7 @@
 +$  line-head-ty
   $%
     [%abs line=@ud]
+    [%mark mark=char]
     [%last ~]
     [%none ~]
     [%current ~]
@@ -41,6 +42,7 @@
   $%
     [%allow-remote ship=@p]
     [%remove-remote ship=@p]
+    [%list-remote ~]
     [%void ~]                             ::  It's here to prevent mint-vain on the handler; never constructed
   ==
 +$  cmd-ty
@@ -52,13 +54,28 @@
     [%file path=(unit anypath)]
     [%goto line=line-ty]
     [%insert line=line-ty]
+    [%kark line=line-ty mark=char]                            ::  Kreate mark
     [%print range=frange]
+    [%undo ~]
+    [%write path=(unit anypath)]
     [%extern cmd=ext-cmd-ty]
 
     [%text text=(unit tape)]
     [%cont ~]
   ==
 +$  card  card:shoe
+++  shoe-fec
+  |=  fec=sole-effect  ^-  (list card)
+  ~[[shoe+~+sole+fec]]
+++  prompt
+  |=  p=tape  ^-  (list card)
+  (shoe-fec pro+[%& %prompt p])
+++  shoe-print
+  |=  t=tape  ^-  (list card)
+  (shoe-fec txt+t)
+++  more-fec
+  |=  fecs=(list sole-effect)  ^-  (list card)
+  (shoe-fec mor+fecs)
 --
 =/  state=state-ty
   :*
@@ -85,7 +102,7 @@
 ++  on-save   !>(state)
 ++  on-load
   |=  old=vase  ^-  (quip card _this)
-  [~[shoe+[~ sole+pro+[%.y dap.bowl ": "]]] this(state !<(state-ty old))]
+  [(prompt ": ") this(state !<(state-ty old))]
 ++  on-poke   on-poke:def
 ++  on-watch  on-watch:def
 ++  on-leave  on-leave:def
@@ -101,11 +118,14 @@
     ?-  cmd-st.state
     [%norm ~]
     ;~  pose
-      extern
-      print
-      edit
       change
+      edit
       file
+      print
+      kark
+      (cold [%undo ~] (just 'u'))                             ::  Undo
+      extern
+      write
       goto
     ==
     [%append *]  (stag %text text:pars)
@@ -122,6 +142,8 @@
         ;~(pfix (jest 'allow') ws:pars patp:pars)
         %+  stag  %remove-remote
         ;~(pfix (jest 'remove') ws:pars patp:pars)
+        %+  stag  %list-remote
+        (cold ~ (jest 'remote'))
       ==
     ==
 
@@ -154,6 +176,10 @@
       %+  stag  %delete
       ;~(sfix frange:pars ;~(plug ws:pars (just 'd')))          ::  Delete range
     ==
+  ++  kark
+    %+  knee  *cmd-ty  |.  ~+
+    %+  stag  %kark
+    ;~(plug line:pars ;~(pfix (just 'k') low))
   ++  print
     %+  knee  *cmd-ty  |.  ~+
     %+  stag  %print
@@ -161,13 +187,17 @@
   ++  goto
     %+  knee  *cmd-ty  |.  ~+
     (stag %goto line:pars)
+  ++  write                                                   ::  Open/Edit a file
+    %+  knee  *cmd-ty  |.  ~+
+    %+  stag  %write
+    ;~(pfix (just 'w') optpath:pars)
   ++  pars
     |%
     ++  ws  (cold ~ (star (just ' ')))
     ++  empty  (cold ~ (just ''))
     ++  path                                                  ::  Abs/Rel path
       %+  knee  *anypath  |.  ~+
-      ;~  plug  ;~(pose (cold %.y cen) (easy %.n))
+      ;~  plug  ;~(pose (cold %.n cen) (easy %.y))
         ;~  pfix  fas
           %+  more  fas
           %+  cook  ,@ta  urs:ab
@@ -194,6 +224,7 @@
           (cold current+~ dot)                                  ::  Current line
           (cold last+~ buc)                                     ::  Last line
           (stag %abs dem)                                       ::  Absolute line
+          (stag %mark ;~(pfix (just '\'') low))                 ::  Mark
           (easy none+~)                                         ::  Nothing
         ==
         ;~  pose
@@ -224,50 +255,67 @@
   |=  [sole-id=@ta cmd=cmd-ty]
   ~&  >  cmd
   |^  ^-  (quip card _this)
-    ?+  cmd  ~&  >>>  "Unimplemented"  `this
-    [%append *]
-      =/  line  (resolve-line line.cmd)
-      ?~  line  `this  `this(cmd-st.state [%append u.line])
-    [%change *]
-      =/  range  (resolve-range range.cmd)
-      ?~  range  `this  (change u.range)
-    [%delete *]
-      =/  range  (resolve-range range.cmd)
-      ?~  range  `this  (delete u.range)
-    [%edit *]  (edit (bind path.cmd resolve-path))
-    [%file *]  (file (bind path.cmd resolve-path))
-    [%insert *]
-      =/  line  (resolve-line line.cmd)
-      ?~  line  `this  `this(cmd-st.state [%insert (dec u.line)])
-    [%goto *]
-      =/  line  (resolve-line-none line.cmd)
-      ?~  line  `this  (goto u.line)
-    [%print *]
-      =/  range  (resolve-range range.cmd)
-      ?~  range  `this  (print u.range)
-    [%extern *]  (extern cmd.cmd)
-    [%text *]
-      ?+  cmd-st.state  ~&  >>>  "Impossible state"  `this
-      [%append *]  (append line.cmd-st.state text.cmd)
-      [%insert *]  (insert line.cmd-st.state text.cmd)
+    =/  new=(unit (quip card _this))  ?+  cmd  ~&  >>>  "Unimplemented"  ~
+      [%append *]
+        %+  biff  (resolve-line line.cmd)
+        |=  line=@ud
+        `[(prompt ": append: ") this(cmd-st.state [%append line], oldbuff.state buff.state)]
+      [%change *]  (biff (resolve-range range.cmd) change)
+      [%delete *]  (biff (resolve-range range.cmd) delete)
+      [%edit *]  (biff (get-file path.cmd) edit)
+      [%file *]  (biff (get-file path.cmd) file)
+      [%goto *]  (biff (resolve-line-none line.cmd) goto)
+      [%insert *]
+        %+  biff  (resolve-line line.cmd)
+        |=  line=@ud
+        `[(prompt ": insert: ") this(cmd-st.state [%insert (dec line)], oldbuff.state buff.state)]
+      [%kark *]
+        %+  biff  (resolve-line line.cmd)
+        |=  line=@ud
+        ``this(mark.state (~(put by mark.state) mark.cmd line))
+      [%print *]  (biff (resolve-range range.cmd) print)
+      [%undo ~]
+        ?:  =(buff.state oldbuff.state)
+          ~&  >>  "Nothing to undo"  ~
+        ``this(buff.state oldbuff.state, oldbuff.state buff.state)
+      [%write *]  (biff (get-file path.cmd) write)
+      [%extern *]  (extern cmd.cmd)
+      [%text *]
+        ?+  cmd-st.state  ~&  >>>  "Impossible state"  ~
+        [%append *]  (append line.cmd-st.state text.cmd)
+        [%insert *]  (insert line.cmd-st.state text.cmd)
+        ==
       ==
-    ==
+    ?~  new  `this  u.new
   ::  State related element handlers
   ::
+  ++  get-file
+    |=  pax=(unit anypath)  ^-  (unit path)
+    =/  pax=(unit path)  (bind pax resolve-path)
+    =/  pax=(unit path)  ?~  pax  file.state  pax
+    ?~  pax  ~&  >>>  "No current filename"  ~
+    pax
+  ++  actual-path
+    |=  pax=path  ^-  path
+    (en-beam:format [byk.bowl (flop pax)])
   ++  resolve-path
-    |=  pax=anypath
-    ?.  rel.pax  path.pax  (weld /(scot %p our.bowl)/[q.byk.bowl]/(scot %da now.bowl) path.pax)
+    |=  pax=anypath  ^-  path
+    ?.  rel.pax  path.pax  ~&  >>>  "Relative paths not implemented yet"  path.pax
   ++  resolve-line-none                                       ::  Resolve parsed line, ignoring %none
     |=  line=line-ty  ^-  (unit @ud)
     ?:  =([[%none ~] ~] line)  `0
-    =/  l=@ud
+    =/  l=(unit @ud)
       ?-  head.line
-      [%abs *]  line.head.line
-      [%current *]  line.state
-      [%last ~]  (lent buff.state)
-      [%none *]  line.state
+      [%abs *]  `line.head.line
+      [%current *]  `line.state
+      [%mark *]
+        =/  line  (~(get by mark.state) mark.head.line)
+        ?~  line  ~&  >>>  "No such mark"  ~
+        line
+      [%last ~]  `(lent buff.state)
+      [%none *]  `line.state
       ==
-    =/  line=@sd  ?~  rel.line  (sun:si l)  (sum:si u.rel.line (sun:si l))
+    =/  line=@sd  ?~  rel.line  (sun:si (need l))  (sum:si u.rel.line (sun:si (need l)))
     ?:  |(=(-1 (cmp:si line --1)) =(--1 (cmp:si line (sun:si (lent buff.state)))))
       ~&  >>>  "Invalid address"  ~
     `(abs:si line)
@@ -286,7 +334,7 @@
       `[u.line 1]
     [%range *]
       =+  [start=(resolve-line-none start.range) end=(resolve-line-none end.range)]
-      ?~  start  ~  ?~  end    ~
+      ?~  start  ~  ?~  end  ~
       =+  [start=u.start end=u.end]
       ?:  =(start 0)
         ?:  =(end 0)
@@ -299,65 +347,93 @@
     ==
 
   ++  append
-    |=  [line=@ud t=(unit tape)]
+    |=  [line=@ud t=(unit tape)]  ^-  (unit (quip card _this))
     ?~  t
-      [~[shoe+[~ sole+txt+"."]] this(cmd-st.state [%norm ~], line.state line)]
-    [~[shoe+[~ sole+txt+u.t]] this(buff.state (into buff.state line (crip u.t)), cmd-st.state [%append +(line)])]
+      `[(shoe-print ".") this(cmd-st.state [%norm ~], line.state line)]
+    %-  some
+    :-  (welp (shoe-print u.t) (prompt ": "))
+    %=  this
+      buff.state  (into buff.state line (crip u.t))
+      cmd-st.state  [%append +(line)]
+    ==
 
   ++  change
-    |=  range=range-ty  ^-  (quip card _this)
-    `this(cmd-st.state [%insert (dec start.range)], buff.state (oust [(dec start.range) len.range] buff.state))
+    |=  range=range-ty  ^-  (unit (quip card _this))
+    %-  some
+    :-  (prompt ": change: ")
+    %=  this
+      cmd-st.state  [%insert (dec start.range)]
+      buff.state  (oust [(dec start.range) len.range] buff.state)
+      oldbuff.state  buff.state
+    ==
 
   ++  delete
-    |=  range=range-ty  ^-  (quip card _this)
+    |=  range=range-ty  ^-  (unit (quip card _this))
     =/  buff=wain  (oust [(dec start.range) len.range] buff.state)
     =/  bufflent  (lent buff)
     =/  line  ?:  (gth start.range bufflent)  bufflent  start.range
-    `this(line.state line, buff.state buff)
+    `[~ this(line.state line, buff.state buff, oldbuff.state buff.state)]
 
   ++  edit
-    |=  pax=(unit path)  ^-  (quip card _this)
-    =.  pax  ?~  pax  file.state  pax
+    |=  pax=path  ^-  (unit (quip card _this))
     ~&  pax
-    ?~  pax  ~&  >>>  "No current filename"  `this
-    =/  finfo  .^(arch %cy u.pax)
-    ?~  fil.finfo
-      ?~  dir.finfo
-        ~&  >>>  "file doesn't exist"  `this
-      ~&  >>  "directory not supported yet"  `this
-    =/  buff  (to-wain:format .^(cord %cx u.pax))
-    [~ this(buff.state (scag (dec (lent buff)) buff), file.state pax)]
+    =/  file  (bind (file:space:userlib (actual-path pax)) |=(a=* ;;(@t a)))
+    ?~  file  ~&  >>>  "file doesn't exist"  ~
+    =/  buff  (to-wain:format u.file)
+    =/  buff  (scag (dec (lent buff)) buff)
+    %-  some
+    :-  ~
+    %=  this
+      buff.state  buff
+      oldbuff.state  buff
+      file.state  `pax
+      mark.state  *(map char @ud)
+    ==
 
   ++  file
-    |=  file=(unit path)  ^-  (quip card _this)
-    =.  file  ?~  file  file.state  file
-    ?~  file  ~&  >>>  "No current filename"  `this
-    [~[shoe+[~ sole+txt+<u.file>]] this(file.state file)]
+    |=  file=path  ^-  (unit (quip card _this))
+    `[(shoe-print <file>) this(file.state `file)]
 
   ++  insert
-    |=  [line=@ud t=(unit tape)]
+    |=  [line=@ud t=(unit tape)]  ^-  (unit (quip card _this))
     ?~  t
-      [~[shoe+[~ sole+txt+"."]] this(cmd-st.state [%norm ~], line.state ?:(=(line 0) 1 line))]
-    [~[shoe+[~ sole+txt+u.t]] this(buff.state (into buff.state line (crip u.t)), cmd-st.state [%insert +(line)])]
+      `[(welp (shoe-print ".") (prompt ": ")) this(cmd-st.state [%norm ~], line.state ?:(=(line 0) 1 line))]
+    %-  some
+    :-  (shoe-print u.t)
+    this(buff.state (into buff.state line (crip u.t)), cmd-st.state [%insert +(line)])
 
   ++  goto
-    |=  line=@ud  ^-  (quip card _this)
+    |=  line=@ud  ^-  (unit (quip card _this))
     =.  line  ?:  =(0 line)  +(line.state)  line
-    ?:  (gth line (lent buff.state))  ~&  >>>  "Invalid address"  `this
+    ?:  (gth line (lent buff.state))  ~&  >>>  "Invalid address"  ~
     =/  text=cord  (snag (dec line) buff.state)
-    [~[shoe+[~ sole+(with-num:util line text)]] this(line.state line)]
+    `[(shoe-fec (with-num:util line text)) this(line.state line)]
 
   ++  print
-    |=  range=range-ty  ^-  (quip card _this)
+    |=  range=range-ty  ^-  (unit (quip card _this))
+    ?:  =(len.range 0)  ~&  >>>  "Invalid range"  ``this
     =/  lines  (swag [(dec start.range) len.range] buff.state)
     =/  numbered-lines=(list [@ud cord])  (zip:util (gulf start.range (dec (add start.range len.range))) lines)
-    [~[shoe+[~ sole+mor+(turn numbered-lines with-num:util)]] this(line.state (dec (add start.range len.range)))]
+    `[(more-fec (turn numbered-lines with-num:util)) this(line.state (dec (add start.range len.range)))]
+
+  ++  write
+    |=  file=path  ^-  (unit (quip card _this))
+    %-  some
+    :_  this
+    :~
+      ^-  card:agent:gall
+      :*  %pass  /file  %arvo  %c
+          %info
+          (foal:space:userlib (en-beam:format [byk.bowl (flop file)]) [%noun !>((of-wain:format buff.state))])
+      ==
+    ==
 
   ++  extern
-    |=  cmd=ext-cmd-ty  ^-  (quip card _this)
-    ?+  cmd  ~&  >>>  "Unknown command"  `this
-    [%allow-remote *]  `this(remote.state (~(put in remote.state) ship.cmd))
-    [%remove-remote *]  `this(remote.state (~(del in remote.state) ship.cmd))
+    |=  cmd=ext-cmd-ty  ^-  (unit (quip card _this))
+    ?+  cmd  ~&  >>>  "Unknown command"  ~
+    [%allow-remote *]  ``this(remote.state (~(put in remote.state) ship.cmd))
+    [%remove-remote *]  ``this(remote.state (~(del in remote.state) ship.cmd))
+    [%list-remote ~]  (some [(shoe-print <remote.state>) this])
     ==
 
   ++  util
@@ -367,7 +443,7 @@
       =/  l  (scow %ud l)
       =/  max-len  (lent (scow %ud (lent buff.state)))
       =/  this-len  (lent l)
-      klr+~[[[`%br ~ `%g] (weld (weld (reap (sub max-len this-len) ' ') l) (reap (sub 8 (lent l)) ' '))] t]
+      klr+~[[[`%br ~ `%g] (weld (weld (reap (sub max-len this-len) ' ') l) " ")] t]
 
     ++  zip
       |*  [a=(list) b=(list)]
