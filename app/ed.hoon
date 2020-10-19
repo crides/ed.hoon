@@ -343,7 +343,7 @@
     pax
   ++  actual-path
     |=  pax=path  ^-  path
-    (en-beam:format [byk.bowl (flop pax)])
+    (en-beam:format [byk.bowl(r [%da now.bowl]) (flop pax)])
   ++  resolve-path
     |=  pax=anypath  ^-  path
     ?.  rel.pax  path.pax  ~&  >>>  "Relative paths not implemented yet"  path.pax
@@ -424,10 +424,11 @@
     |=  pax=path  ^-  (unit (quip card _this))
     =/  file  (bind (file:space:userlib (actual-path pax)) |=(a=* ;;(@t a)))
     ?~  file  ~&  >>>  "file doesn't exist"  ~
+    =/  byte-len  (lent (trip u.file))
     =/  buff  (to-wain:format u.file)
-    =/  buff  (scag (dec (lent buff)) buff)
+    =/  lines  (lent buff)
     %-  some
-    :-  ~
+    :-  (shoe-print "{<byte-len>} bytes, {<lines>} lines")
     %=  this
       buff.state  buff
       oldbuff.state  buff
@@ -444,7 +445,7 @@
     ?~  t
       `[(prompt ": ") this(cmd-st.state [%norm ~], line.state ?:(=(line 0) 1 line))]
     %-  some
-    :-  (shoe-print u.t)
+    :-  ~
     this(buff.state (into buff.state line (crip u.t)), cmd-st.state [%insert +(line)])
 
   ++  goto
@@ -463,15 +464,18 @@
 
   ++  write
     |=  file=path  ^-  (unit (quip card _this))
+    =/  lines  (lent buff.state)
+    =/  bytes  (of-wain:format buff.state)
+    =/  byte-len  (lent (trip bytes))
     %-  some
     :_  this
-    :~
+    :-
       ^-  card:agent:gall
       :*  %pass  /file  %arvo  %c
           %info
           (foal:space:userlib (en-beam:format [byk.bowl (flop file)]) [%noun !>((of-wain:format buff.state))])
       ==
-    ==
+    (shoe-print "{<byte-len>} bytes, {<lines>} lines written")
 
   ++  extern
     |=  cmd=ext-cmd-ty  ^-  (unit (quip card _this))
